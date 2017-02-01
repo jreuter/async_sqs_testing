@@ -22,7 +22,7 @@ async def coro2():
     return res
 
 async def coro3(loop):
-    queue_name = 'aaslinger-edge-detection'
+    queue_name = 'jreuter-edge-detection'
     logging.info('C3 - About to call SQS')
     session = aiobotocore.get_session(loop=loop)
     async with session.create_client('sqs', region_name='us-east-1') as client:
@@ -37,24 +37,24 @@ async def coro3(loop):
                 raise
         queue_url = queue.get('QueueUrl')
         logging.info("C3 - recieving messages")
-        result = await client.receive_message(WaitTimeSeconds=20,
-                                              MaxNumberOfMessages=1,
-                                              QueueUrl=queue_url)
+        while True:
+            result = await client.receive_message(WaitTimeSeconds=20,
+                                                  MaxNumberOfMessages=1,
+                                                  QueueUrl=queue_url)
 
-        if 'Messages' in result:
-            logging.info('C3 - We got some messages')
-            for message in result['Messages']:
-                logging.info(message['Body'])
-        else:
-            logging.info('C3 - We got no messages')
+            if 'Messages' in result:
+                logging.info('C3 - We got some messages')
+                for message in result['Messages']:
+                    logging.info(message['Body'])
+            else:
+                logging.info('C3 - We got no messages')
     return
 
 async def main(loop):
     await asyncio.gather(
         coro3(loop),
         coro2(),
-        coro2(),
-        coro3(loop)
+        coro2()
     )
 
 
