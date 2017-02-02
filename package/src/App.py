@@ -17,7 +17,7 @@ async def coro1():
 async def coro2():
     res = await coro1()
     res = res * res
-    await asyncio.sleep(res)
+    await asyncio.sleep(60 * res)
     logging.info('coro2 finished with output {}'.format(res))
     return res
 
@@ -46,6 +46,8 @@ async def coro3(loop):
                 logging.info('C3 - We got some messages')
                 for message in result['Messages']:
                     logging.info(message['Body'])
+                    await client.delete_message(ReceiptHandle=str(message.get('ReceiptHandle')),
+                                                QueueUrl=queue_url)
             else:
                 logging.info('C3 - We got no messages')
     return
