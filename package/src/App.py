@@ -6,7 +6,7 @@ from aiohttp import web
 from botocore.exceptions import ClientError
 from random import randint
 
-logging.basicConfig( stream=sys.stdout, level=logging.INFO)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
 class co1:
@@ -20,10 +20,10 @@ class co1:
 
 class co2:
     @staticmethod
-    async def coro2():
+    async def coro2(app):
         res = await co1.coro1()
         res = res * res
-        await asyncio.sleep(60 * res)
+        await asyncio.sleep(res)
         logging.info('coro2 finished with output {}'.format(res))
         return res
 
@@ -70,6 +70,7 @@ async def coro3(app):
 def make_app():
     app = web.Application(loop=loop)
     app.on_startup.append(start_sqs_task)
+    app.on_startup.append(co2.coro2)
     app.on_cleanup.append(cleanup_sqs_task)
 
     app.router.add_route('*',
@@ -83,19 +84,6 @@ async def start_sqs_task(app):
 
 async def cleanup_sqs_task(app):
      app['sqs_listener'].cancel()
-#     # app = web.Application(loop=loop)
-#     app['co2'] = co2()
-#     app['co3'] = co3()
-#     # await app['co2'].coro2()
-#     # await app['co3'].coro3(loop)
-#     # await app['co2'].coro2()
-#     # await app['co2'].coro2()
-#
-#
-#     await co3.coro3(loop=loop)
-#     # await app['co2'].coro2(),
-#     # await app['co2'].coro2()
-
 
 
 if __name__ == '__main__':
