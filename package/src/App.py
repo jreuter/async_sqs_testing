@@ -2,28 +2,43 @@ import sys
 import asyncio
 import aiobotocore
 import logging
+from aiohttp import web
 from botocore.exceptions import ClientError
 from random import randint
 
 logging.basicConfig( stream=sys.stdout, level=logging.INFO)
 
 
-async def coro1():
-    res = randint(0, 7)
-    await asyncio.sleep(res)
-    logging.info('coro1 finished with output {}'.format(res))
-    return res
+class co1:
+    @staticmethod
+    async def coro1():
+        res = randint(0, 7)
+        await asyncio.sleep(res)
+        logging.info('coro1 finished with output {}'.format(res))
+        return res
 
-async def coro2():
-    res = await coro1()
-    res = res * res
-    await asyncio.sleep(60 * res)
-    logging.info('coro2 finished with output {}'.format(res))
-    return res
 
-async def coro3(loop):
+class co2:
+    @staticmethod
+    async def coro2():
+        res = await co1.coro1()
+        res = res * res
+        await asyncio.sleep(60 * res)
+        logging.info('coro2 finished with output {}'.format(res))
+        return res
+
+class TestHandler(web.View):
+
+     async def get(self):
+         logging.info("hit web endpoint")
+         return web.json_response({"Status": "Ok"})
+
+
+async def coro3(app):
     queue_name = 'jreuter-edge-detection'
     logging.info('C3 - About to call SQS')
+
+    loop = asyncio.get_event_loop()
     session = aiobotocore.get_session(loop=loop)
     async with session.create_client('sqs', region_name='us-east-1') as client:
         try:
@@ -50,16 +65,40 @@ async def coro3(loop):
                                                 QueueUrl=queue_url)
             else:
                 logging.info('C3 - We got no messages')
-    return
+            await asyncio.sleep(60)
 
-async def main(loop):
-    await asyncio.gather(
-        coro3(loop),
-        coro2(),
-        coro2()
-    )
+def make_app():
+    app = web.Application(loop=loop)
+    app.on_startup.append(start_sqs_task)
+    app.on_cleanup.append(cleanup_sqs_task)
+
+    app.router.add_route('*',
+                         r'/{base:(places)?\/?}',
+                         TestHandler)
+
+    return app
+
+async def start_sqs_task(app):
+     app['sqs_listener'] = app.loop.create_task(coro3(app))
+
+async def cleanup_sqs_task(app):
+     app['sqs_listener'].cancel()
+#     # app = web.Application(loop=loop)
+#     app['co2'] = co2()
+#     app['co3'] = co3()
+#     # await app['co2'].coro2()
+#     # await app['co3'].coro3(loop)
+#     # await app['co2'].coro2()
+#     # await app['co2'].coro2()
+#
+#
+#     await co3.coro3(loop=loop)
+#     # await app['co2'].coro2(),
+#     # await app['co2'].coro2()
+
 
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(main(loop))
+    app = make_app()
+    web.run_app(app, host='0.0.0.0', port=5000)
